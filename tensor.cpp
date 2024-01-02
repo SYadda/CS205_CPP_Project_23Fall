@@ -16,6 +16,7 @@ class Tensor {
 private:
     int shape;  // 张量的维数（形状）
     int *size;  // 张量每一维的宽度
+    int total_size;  // 张量的总大小
     int dtype;  // 张量的数据类型
     int *permute;  // 张量的维度排列
     T *data;    // 张量的数据
@@ -26,7 +27,7 @@ public:
         size = new int[shape];
         permute = new int[shape];
 
-        int total_size = 1;
+        total_size = 1;
         for (int i = 0; i < shape; ++i) {
             size[i] = sz[i];
             permute[i] = i;
@@ -54,6 +55,11 @@ public:
     // 获取张量每一维的宽度
     int *getSize() const {
         return size;
+    }
+
+    // 获取张量的总大小
+    int getTotalSize() const {
+        return total_size;
     }
 
     // 获取张量数据类型
@@ -91,20 +97,21 @@ int main() {
 
     // 示例输出
     cout << "Shape: " << tensor.getShape() << endl;
-    int total_size = 1;
+
     cout << "Size: ";
     for (int i = 0; i < shape; ++i) {
         cout << tensor.getSize()[i] << " ";
-        total_size *= size[i];
     }
     cout << endl;
 
-    cout << "Total Size: " << total_size << endl;
+    cout << "Total Size: " << tensor.getTotalSize() << endl;
 
     cout << "dtype: " << tensor.type_name() << endl;
 
+    cout << "data_ptr: " << tensor.data_ptr() << endl;
+
     cout << "Data: ";
-    for (int i = 0; i < total_size; ++i) {
+    for (int i = 0; i < tensor.getTotalSize(); ++i) {
         cout << tensor.data_ptr()[i] << " ";
     }
     cout << endl;
