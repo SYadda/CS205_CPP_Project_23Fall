@@ -57,7 +57,7 @@ int main() {
 
     cout << "dtype: " << xxx.type_name() << endl;
 
-    cout << "data_ptr: " << static_cast<void *>(xxx.data_ptr()) << endl;
+    cout << "data_ptr: " << xxx.data_ptr() << endl;
 
     cout << endl << xxx << endl;    
 

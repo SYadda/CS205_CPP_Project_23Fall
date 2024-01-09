@@ -133,8 +133,8 @@ namespace ts {
         }
 
         // 获取张量数据的首地址
-        T *data_ptr() const {
-            return data;
+        void *data_ptr() const {
+            return static_cast<void *>(data);
         }
 
         /* 
