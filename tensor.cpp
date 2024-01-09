@@ -1,18 +1,27 @@
 #include <iostream>
-#include <cstdlib>
+#include <exception>
+#include <random>
+#include <limits>
 using namespace std;
 
-enum dtype {
-    dtype_bool = 0,
-    dtype_char = 1,
-    dtype_int = 2,
-    dtype_long_long = 3,
-    dtype_float = 4,
-    dtype_double = 5
-};
-
 namespace ts {
-    
+
+    class UnsupportedTypesException: public exception {
+    public:
+        const char* what() const noexcept override {
+            return "Unsupported types";
+        }
+    };
+
+    enum dtype {
+        dtype_bool = 0,
+        dtype_char = 1,
+        dtype_int = 2,
+        dtype_long_long = 3,
+        dtype_float = 4,
+        dtype_double = 5
+    };
+
     template <typename T>
     class Tensor {
     private:
@@ -147,4 +156,72 @@ namespace ts {
             return os;
         }
     };
+
+    template <typename T>
+    Tensor<T> rand (int shape, int *size, T range_min = 0, T range_max = std::numeric_limits<T>::max()) { 
+
+        int total_size = 1;
+        for (int i = 0; i < shape; ++i) {
+            total_size *= size[i];
+        }
+
+        T *data = new T[total_size];
+
+        std::random_device rd;  // 用于获取随机数种子
+        std::mt19937_64 gen(rd()); // 初始化64位Mersenne Twister随机数生成器
+
+        // 识别 T 的类型
+        int dtype;
+        T temp;
+        string typeName = typeid(temp).name();
+
+        if (typeName == "b") {
+            dtype = dtype_bool;
+            std::uniform_int_distribution<> dis(0, 1); // 定义分布范围
+            for (int i = 0; i < total_size; ++i) {
+                data[i] = dis(gen); // 生成随机数
+            }
+        } else if (typeName == "c") {
+            if (range_min == 0 && range_max == 127) {
+                range_min = 32;  // 可打印字符范围
+                range_max = 126;            
+            }
+
+            dtype = dtype_char;
+            std::uniform_int_distribution<char> dis(range_min, range_max); // 定义分布范围
+            for (int i = 0; i < total_size; ++i) {
+                data[i] = dis(gen); // 生成随机数
+            }
+        } else if (typeName == "i") {
+            dtype = dtype_int;
+            std::uniform_int_distribution<int> dis(range_min, range_max); // 定义分布范围
+            for (int i = 0; i < total_size; ++i) {
+                data[i] = dis(gen); // 生成随机数
+            }
+        } else if (typeName == "x") {
+            dtype = dtype_long_long;
+            std::uniform_int_distribution<long long> dis(range_min, range_max); // 定义分布范围
+            for (int i = 0; i < total_size; ++i) {
+                data[i] = dis(gen); // 生成随机数
+            }
+        } else if (typeName == "f") {
+            dtype = dtype_float;
+            std::uniform_real_distribution<float> dis(range_min, range_max); // 定义分布范围
+            for (int i = 0; i < total_size; ++i) {
+                data[i] = dis(gen); // 生成随机数
+            }
+        } else if (typeName == "d") {
+            dtype = dtype_double;
+            std::uniform_real_distribution<double> dis(range_min, range_max); // 定义分布范围
+            for (int i = 0; i < total_size; ++i) {
+                data[i] = dis(gen); // 生成随机数
+            }
+        } else {
+            throw UnsupportedTypesException();
+            return Tensor<T>(0, nullptr, 0, nullptr);
+        }
+
+        return Tensor<T>(shape, size, dtype, data);
+    }
+
 }
