@@ -33,6 +33,31 @@ int main() {
     cout << endl << endl << endl << endl;
 
 
+    int * p = new int[3]{1, 2, 0};
+    tensor.setPermute(p);
+
+    // 示例输出
+    cout << "Shape: " << tensor.getShape() << endl;
+
+    cout << "Size: ";
+    for (int i = 0; i < shape; ++i) {
+        cout << tensor.getSize()[i] << " ";
+    }
+    cout << endl;
+
+    cout << "Total Size: " << tensor.getTotalSize() << endl;
+
+    cout << "dtype: " << tensor.type_name() << endl;
+
+    cout << "data_ptr: " << tensor.data_ptr() << endl;
+
+    cout << endl << tensor << endl;
+
+
+
+    cout << endl << endl << endl << endl;
+
+
     // ts::rand<long>();
 
     int * rand_size = new int[3]{3, 4, 5};

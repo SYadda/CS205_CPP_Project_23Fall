@@ -46,7 +46,7 @@ namespace ts {
             int index = permute[virtual_index];
 
             if (! is_first) { // 非第一维需要缩进
-                for (int i = 0; i < index; ++i) {
+                for (int i = 0; i < virtual_index; ++i) {
                     os << " ";
                 }
             }
@@ -55,9 +55,10 @@ namespace ts {
             // i == 0
             printTensor(os, data, size, virtual_index + 1, true);
 
-            if (index == shape-1) { // 最后一维不需要换行
+            if (virtual_index == shape-1) { // 最后一维不需要换行
                 for (int i = 1; i < size[index]; ++i) {
-                    os << ", " << *(data + i * offset[index]);
+                    os << ", ";
+                    printTensor(os, data + i * offset[index], size, virtual_index + 1, false);
                 }
             } else { 
                 for (int i = 1; i < size[index]; ++i) {
@@ -80,6 +81,13 @@ namespace ts {
                 size[i] = sz[i];
                 permute[i] = i;
                 total_size *= size[i];
+            }
+
+            // offset表示未转置时，每一维的偏移量，即每一维的数据，其内存地址，到邻近的下一个数据的偏移量
+            // 取决于Tensor的size，例如：size = [2, 3, 4]，则offset = [12, 4, 1]
+            offset[shape-1] = 1;
+            for (int i = shape-1; i > 0; i--) {
+                offset[i-1] = offset[i] * size[i];
             }
 
             data = new T[total_size];
@@ -128,6 +136,12 @@ namespace ts {
             }
         }
 
+        void setPermute(int *p) {
+            for (int i = 0; i < shape; ++i) {
+                permute[i] = p[i];
+            }
+        }
+
         int *getPermute() const {
             return permute;
         }
@@ -144,12 +158,6 @@ namespace ts {
             [4.9000, 5.20001]]
         */
         friend ostream &operator << (ostream &os, const Tensor &t) {
-            //根据t的转置情况permute，计算出t的offset
-            int *tp = t.getPermute();
-            t.offset[t.shape - 1] = 1;
-            for (int i = t.shape - 2; i >= 0; --i) {
-                t.offset[i] = t.offset[i + 1] * t.size[tp[i + 1]];
-            }
 
             //根据t的offset，计算出t的每一个data的地址，并打印
             t.printTensor(os, t.data, t.size, 0, true);
