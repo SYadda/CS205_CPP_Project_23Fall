@@ -5,6 +5,7 @@
 #include <limits>
 #include <cstring>
 #include <typeinfo>
+#include <vector>
 using namespace std;
 
 namespace ts {
@@ -13,6 +14,15 @@ namespace ts {
     public:
         const char* what() const noexcept override {
             return "Unsupported types";
+        }
+    };
+
+    class InvalidShapeException : public exception
+    {
+    public:
+        const char *what() const noexcept override
+        {
+            return "Invalid shape";
         }
     };
 
@@ -34,6 +44,7 @@ namespace ts {
         int dtype;  // 张量的数据类型
         int *permute;  // 张量的转置状况（permute[i]，表示第i维的数据，在原张量数据结构中存储的位置）
         int *offset; // 张量的偏移量（offset[i]，表示第i维的数据，其内存地址，到邻近的下一个数据的偏移量）
+        int *ptr_cnt;   // 指向data的指针的数量
         // 每次使用<<打印输出时，先根据当前的permute，计算出offset，然后根据offset，计算出data的地址，然后打印data的值
         T *data;    // 张量的数据
           template <typename> friend class Tensor; //便于不同数据类型实例化的类互访
@@ -47,18 +58,18 @@ namespace ts {
                         os << "false";
                     }
                 } else {
-                    os << *data;
-                }
+                os << *data;
+            }
                 return;
             }
-
+            
             // 转置时只改变permute，不修改数据
             // virtual_index：从0向后遍历
             // index：数据结构存储中的真实index
             int index = permute[virtual_index];
 
             if (! is_first) { // 非第一维需要缩进
-                for (int i = 0; i < index; ++i) {
+                for (int i = 0; i < virtual_index; ++i) {
                     os << " ";
                 }
             }
@@ -67,7 +78,7 @@ namespace ts {
             // i == 0
             printTensor(os, data, size, virtual_index + 1, true);
 
-            if (index == shape-1) { // 最后一维不需要换行
+            if (virtual_index == shape-1) { // 最后一维不需要换行
                 for (int i = 1; i < size[index]; ++i) {
                     if (typeid(T).name() == typeid(bool).name()) {
                         if (*(data + i * offset[index])) {
@@ -76,10 +87,11 @@ namespace ts {
                             os << ", false";
                         }    
                     } else {
-                        os << ", " << *(data + i * offset[index]);
+                        os << ", ";
+                        printTensor(os, data + i * offset[index], size, virtual_index + 1, false);
                     }
                 }
-            } else {
+            } else { 
                 for (int i = 1; i < size[index]; ++i) {
                     os << "," << endl;
                     printTensor(os, data + i * offset[index], size, virtual_index + 1, false);
@@ -87,9 +99,10 @@ namespace ts {
             }
             os << "]";
         }
- public:
+    public:
         // 构造函数
-        Tensor(int s, const int *sz, int dt, const T *d = nullptr) : shape(s), dtype(dt) {
+        // shape, size, dtype, data, ptr_cnt
+        Tensor(int s, int *sz, int dt, T *d = nullptr, int * pc = new int(1)) : shape(s), dtype(dt), ptr_cnt(pc) {
             size = new int[shape];
             permute = new int[shape];
             offset = new int[shape];
@@ -101,13 +114,14 @@ namespace ts {
                 total_size *= size[i];
             }
 
-                 if (shape > 0) {
-                offset[shape - 1] = 1;
-                for (int i = shape - 2; i >= 0; --i) {
-                    offset[i] = offset[i + 1] * size[i + 1];
+            // offset表示未转置时，每一维的偏移量，即每一维的数据，其内存地址，到邻近的下一个数据的偏移量
+            // 取决于Tensor的size，例如：size = [2, 3, 4]，则offset = [12, 4, 1]
+            if (shape > 0) {
+                offset[shape-1] = 1;
+                for (int i = shape-1; i > 0; i--) {
+                    offset[i-1] = offset[i] * size[i];
                 }
             }
-
 
             data = new T[total_size];
             if (d != nullptr) {
@@ -122,7 +136,20 @@ namespace ts {
         }
 
         // copy constructor
-        Tensor(const Tensor &t) : Tensor(t.shape, t.size, t.dtype, t.data) {
+        // Tensor(const Tensor &t) : Tensor(t.shape, t.size, t.dtype, t.data) {
+        // }
+
+        Tensor(const Tensor &t) : shape(t.shape), dtype(t.dtype), size(new int[t.shape]), permute(new int[t.shape]), offset(new int[t.shape]), data(t.data), ptr_cnt(t.ptr_cnt) {
+
+            // 复制size、permute和offset数组
+            for (int i = 0; i < shape; ++i) {
+                size[i] = t.size[i];
+                permute[i] = t.permute[i];
+                offset[i] = t.offset[i];
+            }
+
+            // 增加引用计数
+            (*ptr_cnt)++;
         }
 
         // 析构函数
@@ -130,7 +157,12 @@ namespace ts {
             delete[] size;
             delete[] permute;
             delete[] offset;
-            delete[] data;
+
+            if (--(*ptr_cnt) == 0)
+            {
+                delete[] data;
+                delete ptr_cnt;
+            }        
         }
 
         // 获取张量的维数（形状）
@@ -164,7 +196,8 @@ namespace ts {
                 default:                 return "unknown";
             }
         }
- void setPermute(int *p) {
+        
+        void setPermute(int *p) {
             for (int i = 0; i < shape; ++i) {
                 permute[i] = p[i];
             }
@@ -186,12 +219,287 @@ namespace ts {
             [4.9000, 5.20001]]
         */
         friend ostream &operator << (ostream &os, const Tensor &t) {
-            //根据t的转置情况permute，计算出t的offset
-
             //根据t的offset，计算出t的每一个data的地址，并打印
             t.printTensor(os, t.data, t.size, 0, true);
             return os;
         }
+        
+
+        Tensor<T> operator()(const vector<int> &index, pair<int, int> range = {0, 0})
+        {
+            // 处理边界情况
+            if (index.size() > shape)
+            {
+                throw InvalidShapeException();
+            }
+
+            int new_shape = shape - index.size();
+            int *new_size = new int[new_shape];
+            T *new_data = data;
+
+            // 计算索引的影响
+            for (size_t i = 0; i < index.size(); ++i)
+            {
+                if (index[i] < 0 || index[i] >= size[i])
+                {
+                    throw InvalidShapeException();
+                }
+                new_data += offset[i] * index[i];
+            }
+
+            // 处理只输入index的情况
+            if (range.first == 0 && range.second == 0)
+            {
+                for (size_t i = index.size(); i < shape; ++i)
+                {
+                    new_size[i - index.size()] = size[i];
+                }
+                return Tensor<T>(new_shape, new_size, dtype, new_data, ptr_cnt);
+            }
+
+            // 处理range情况
+            if (range.first < 0 || range.second > size[index.size()] || range.first >= range.second)
+            {
+                throw InvalidShapeException();
+            }
+
+            new_size[0] = range.second - range.first;
+            for (size_t i = index.size() + 1; i < shape; ++i)
+            {
+                new_size[i - index.size()] = size[i];
+            }
+            new_data += offset[index.size()] * range.first;
+
+            return Tensor<T>(new_shape, new_size, dtype, new_data, ptr_cnt);
+        }
+
+        // join 操作, 假设未转置，ts::Tensor t3 = ts::cat({t1, t2}, int dim)
+        friend Tensor<T> cat(const Tensor &t1, const Tensor &t2, int dim)
+        {
+            // 处理边界情况
+            if (t1.shape != t2.shape)
+            {
+                cout << "t1.shape != t2.shape" << endl;
+                throw InvalidShapeException();
+            }
+            if (dim > t1.shape)
+            {
+                cout << "dim > t1.shape" << endl;
+                throw InvalidShapeException();
+            }
+            for (int i = 0; i < t1.shape; i++)
+            {
+                if (i == dim)
+                    continue;
+                if (t1.size[i] != t2.size[i])
+                {
+                    cout << "t1.size[i] != t2.size[i]" << endl;
+                    throw InvalidShapeException();
+                }
+            }
+
+            // 计算新的size和total_size
+            int *new_size = new int[t1.shape];
+            for (int i = 0; i < t1.shape; i++)
+            {
+                if (i == dim)
+                    new_size[i] = t1.size[i] + t2.size[i];
+                else
+                    new_size[i] = t1.size[i];
+            }
+
+            int new_total_size = 1;
+            for (int i = 0; i < t1.shape; i++)
+            {
+                new_total_size *= new_size[i];
+            }
+
+            // 计算新的offset（步长）
+            int *new_offset = new int[t1.shape];
+            new_offset[t1.shape - 1] = 1;
+            for (int i = t1.shape - 1; i > 0; i--)
+            {
+                new_offset[i - 1] = new_offset[i] * new_size[i];
+            }
+
+            T *new_data = new T[new_total_size];
+
+            // 分别计算两个tensor在join中每次加入的数据量
+            int t1_add = 1;
+            int t2_add = 1;
+            for (int i = t1.getShape() - 1; i >= dim; i--)
+            {
+                t1_add *= t1.getSize()[i];
+            }
+            for (int i = t2.getShape() - 1; i >= dim; i--)
+            {
+                t2_add *= t2.getSize()[i];
+            }
+
+            int order = 0;
+            int t1_order = 0, t2_order = 0;
+            while (order < new_total_size)
+            {
+                for (int i = 0; i < t1_add; i++)
+                {
+                    new_data[order] = t1.data[t1_order];
+                    order++;
+                    t1_order++;
+                }
+                for (int i = 0; i < t2_add; i++)
+                {
+                    new_data[order] = t2.data[t2_order];
+                    order++;
+                    t2_order++;
+                }
+            }
+
+            return Tensor<T>(t1.shape, new_size, t1.dtype, new_data);
+        }
+
+        friend Tensor<T> self_cat(const Tensor &t1, int n, int dim)
+        {
+            // 处理边界情况
+            if (dim > t1.shape)
+            {
+                cout << "dim > t1.shape" << endl;
+                throw InvalidShapeException();
+            }
+            if (n <= 0)
+            {
+                cout << "n must be greater than 0" << endl;
+                throw InvalidShapeException();
+            }
+
+            // 计算新的size和total_size
+            int *new_size = new int[t1.shape];
+            for (int i = 0; i < t1.shape; i++)
+            {
+                if (i == dim)
+                    new_size[i] = t1.size[i] * n;
+                else
+                    new_size[i] = t1.size[i];
+            }
+
+            int new_total_size = 1;
+            for (int i = 0; i < t1.shape; i++)
+            {
+                new_total_size *= new_size[i];
+            }
+
+            // 计算新的offset（步长）
+            int *new_offset = new int[t1.shape];
+            new_offset[t1.shape - 1] = 1;
+            for (int i = t1.shape - 1; i > 0; i--)
+            {
+                new_offset[i - 1] = new_offset[i] * new_size[i];
+            }
+
+            T *new_data = new T[new_total_size];
+
+            // 计算单个tensor在join中每次加入的数据量
+            int t1_add = 1;
+            for (int i = t1.getShape() - 1; i >= dim; i--)
+            {
+                t1_add *= t1.getSize()[i];
+            }
+
+            int order = 0;
+            vector<int> t1_order(n, 0);
+            while (order < new_total_size)
+            {
+                for (int j = 0; j < n; j++)
+                    for (int i = 0; i < t1_add; i++)
+                    {
+                        new_data[order] = t1.data[t1_order[j]];
+                        order++;
+                        t1_order[j]++;
+                    }
+            }
+
+            return Tensor<T>(t1.shape, new_size, t1.dtype, new_data);
+        }
+
+        friend Tensor<T> tile(const Tensor &t1, const vector<int> &dims, int currentDim = 0)
+        {
+            int index = dims.size() - currentDim - 1;
+            int dim = t1.getShape() - currentDim - 1;
+            Tensor<T> t2 = self_cat(t1, dims[index], dim);
+            if (currentDim == dims.size() - 1)
+                return move(t2);
+            else
+                return tile(t2, dims, currentDim + 1);
+        }
+
+        // Mutating operations
+        Tensor<T> &operator=(const vector<T> num)
+        {
+            if (num.size() == 1)
+            {
+                for (int i = 0; i < total_size; i++)
+                {
+                    data[i] = num[0];
+                }
+            }
+            else if (num.size() == size[0])
+            {
+                int order = 0;
+                for (int i = 0; i < size[0]; i++)
+                {
+                    for (int j = 0; j < offset[0]; j++)
+                    {
+                        data[order] = num[i];
+                        order++;
+                    }
+                }
+            }
+            return *this;
+        }
+
+        // Permute
+        Tensor<T> &tensor_permute(int *p)
+        {
+            setPermute(p);
+            return *this;
+        }
+
+        // Transpose
+        Tensor<T> &tensor_transpose(int dim1, int dim2)
+        {
+            int *p = new int[shape];
+            for (int i = 0; i < shape; i++)
+            {
+                p[i] = i;
+            }
+            p[dim1] = dim2;
+            p[dim2] = dim1;
+            setPermute(p);
+            return *this;
+        }
+
+        // View operation
+        Tensor<T> view(const vector<int> &new_shape)
+        {
+            // 边界检查
+            int new_total_size = 1;
+            for (int i = 0; i < new_shape.size(); i++)
+            {
+                new_total_size *= new_shape[i];
+            }
+            if (new_total_size != total_size)
+            {
+                cout << "new_total_size != total_size" << endl;
+                throw InvalidShapeException();
+            }
+            int *new_size = new int[new_shape.size()];
+            for (int i = 0; i < new_shape.size(); i++)
+            {
+                new_size[i] = new_shape[i];
+            }
+            
+            return Tensor<T>(new_shape.size(), new_size, dtype, data, ptr_cnt);
+        }
+
          //尺寸验证
         void assert_shape_same(const Tensor &t) const {
             if (shape != t.shape) {
