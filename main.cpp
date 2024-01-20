@@ -85,7 +85,114 @@ int main() {
 
     cout << "data_ptr: " << xxx.data_ptr() << endl;
 
-    cout << endl << xxx << endl;    }
+    cout << endl << xxx << endl;    
+
+    cout << endl << endl << endl << endl;
+
+
+
+
+    cout << "rand bool" << endl;
+    ts::Tensor<bool> test_rand_b = ts::rand<bool>(3, rand_size);
+    cout << test_rand_b << endl << endl;
+
+    cout << "rand char" << endl;
+    ts::Tensor<char> test_rand_c = ts::rand<char>(3, rand_size);
+    cout << test_rand_c << endl << endl;
+
+    cout << "rand int" << endl;
+    ts::Tensor<int> test_rand_i = ts::rand<int>(3, rand_size);
+    cout << test_rand_i << endl << endl;
+
+    cout << "rand long long" << endl;
+    ts::Tensor<long long> test_rand_ll = ts::rand<long long>(3, rand_size);
+    cout << test_rand_ll << endl << endl;
+
+    cout << "rand float" << endl;
+    ts::Tensor<float> test_rand_f = ts::rand<float>(3, rand_size);
+    cout << test_rand_f << endl << endl;
+
+    cout << "rand double" << endl;
+    ts::Tensor<double> test_rand_d = ts::rand<double>(3, rand_size);
+    cout << test_rand_d << endl << endl;
+
+    cout << endl << endl << endl << endl;
+
+
+
+
+    cout << "zeros bool" << endl;
+    ts::Tensor<bool> test_zeros_b = ts::zeros<bool>(3, rand_size);
+    cout << test_zeros_b << endl << endl;
+
+    cout << "zeros char" << endl;
+    ts::Tensor<char> test_zeros_c = ts::zeros<char>(3, rand_size);
+    cout << test_zeros_c << endl << endl;
+
+    cout << "zeros int" << endl;
+    ts::Tensor<int> test_zeros_i = ts::zeros<int>(3, rand_size);
+    cout << test_zeros_i << endl << endl;
+
+    cout << endl << endl << endl << endl;
+
+
+
+    cout << "ones bool" << endl;
+    ts::Tensor<bool> test_ones_b = ts::ones<bool>(3, rand_size);
+    cout << test_ones_b << endl << endl;
+
+    cout << "ones char" << endl;
+    ts::Tensor<char> test_ones_c = ts::ones<char>(3, rand_size);
+    cout << test_ones_c << endl << endl;
+
+    cout << "ones int" << endl;
+    ts::Tensor<int> test_ones_i = ts::ones<int>(3, rand_size);
+    cout << test_ones_i << endl << endl;
+
+    cout << endl << endl << endl << endl;
+
+
+
+
+    cout << "full bool" << endl;
+    ts::Tensor<bool> test_full_b = ts::full<bool>(3, rand_size, true);
+    cout << test_full_b << endl << endl;
+
+    cout << "full char" << endl;
+    ts::Tensor<char> test_full_c = ts::full<char>(3, rand_size, 'a');
+    cout << test_full_c << endl << endl;
+
+    cout << "full int" << endl;
+    ts::Tensor<int> test_full_i = ts::full<int>(3, rand_size, 1234);
+    cout << test_full_i << endl << endl;
+
+    cout << "full long long" << endl;
+    ts::Tensor<long long> test_full_ll = ts::full<long long>(3, rand_size, 1145141919810);
+    cout << test_full_ll << endl << endl;
+
+    cout << "full float" << endl;
+    ts::Tensor<float> test_full_f = ts::full<float>(3, rand_size, 3.1415926);
+    cout << test_full_f << endl << endl;
+
+    cout << endl << endl << endl << endl;
+
+
+
+    cout << "eye 3 3" << endl;
+    ts::Tensor<int> test_eye_33 = ts::eye<int>(3, 3);
+    cout << test_eye_33 << endl << endl;
+
+    cout << "eye 4 5" << endl;
+    ts::Tensor<int> test_eye_45 = ts::eye<int>(4, 5);
+    cout << test_eye_45 << endl << endl;
+
+    cout  << "eye 5 2" << endl;
+    ts::Tensor<int> test_eye_52 = ts::eye<int>(5, 2);
+    cout << test_eye_52 << endl << endl;
+
+    cout << endl << endl << endl << endl;
+
+    }
 
     {
         int size[] = { 3, 2 };

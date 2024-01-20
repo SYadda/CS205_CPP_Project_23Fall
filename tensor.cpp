@@ -1559,6 +1559,267 @@ namespace ts
     }
 
     template <typename T>
+    Tensor<T> zeros(int shape, int *size)
+    {
+        int total_size = 1;
+        for (int i = 0; i < shape; ++i)
+        {
+            total_size *= size[i];
+        }
+
+        T *data = new T[total_size]{};
+
+        // 识别 T 的类型
+        int dtype;
+        T temp;
+        string typeName = typeid(temp).name();
+
+        if (typeName == "b")
+        {
+            dtype = dtype_bool;
+        }
+        else if (typeName == "c")
+        {
+            dtype = dtype_char;
+        }
+        else if (typeName == "i")
+        {
+            dtype = dtype_int;
+        }
+        else if (typeName == "x")
+        {
+            dtype = dtype_long_long;
+        }
+        else if (typeName == "f")
+        {
+            dtype = dtype_float;
+        }
+        else if (typeName == "d")
+        {
+            dtype = dtype_double;
+        }
+        else
+        {
+            throw UnsupportedTypesException();
+            return Tensor<T>(0, nullptr, 0, nullptr);
+        }
+
+        Tensor<T> res(shape, size, dtype, data);
+        delete[] data;
+        return res;
+    }
+
+    template <typename T>
+    Tensor<T> ones(int shape, int *size)
+    {
+        int total_size = 1;
+        for (int i = 0; i < shape; ++i)
+        {
+            total_size *= size[i];
+        }
+
+        T *data = new T[total_size];
+
+        // 识别 T 的类型
+        int dtype;
+        T temp;
+        string typeName = typeid(temp).name();
+
+        if (typeName == "b")
+        {
+            dtype = dtype_bool;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = 1;
+            }
+        }
+        else if (typeName == "c")
+        {
+            dtype = dtype_char;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = 1;
+            }
+        }
+        else if (typeName == "i")
+        {
+            dtype = dtype_int;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = 1;
+            }
+        }
+        else if (typeName == "x")
+        {
+            dtype = dtype_long_long;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = 1;
+            }
+        }
+        else if (typeName == "f")
+        {
+            dtype = dtype_float;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = 1;
+            }
+        }
+        else if (typeName == "d")
+        {
+            dtype = dtype_double;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = 1;
+            }
+        }
+        else
+        {
+            throw UnsupportedTypesException();
+            return Tensor<T>(0, nullptr, 0, nullptr);
+        }
+
+        Tensor<T> res(shape, size, dtype, data);
+        delete[] data;
+        return res;
+    }
+
+    template <typename T>
+    Tensor<T> full(int shape, int *size, T value)
+    {
+        int total_size = 1;
+        for (int i = 0; i < shape; ++i)
+        {
+            total_size *= size[i];
+        }
+
+        T *data = new T[total_size];
+
+        // 识别 T 的类型
+        int dtype;
+        T temp;
+        string typeName = typeid(temp).name();
+
+        if (typeName == "b")
+        {
+            dtype = dtype_bool;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = value;
+            }
+        }
+        else if (typeName == "c")
+        {
+            dtype = dtype_char;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = value;
+            }
+        }
+        else if (typeName == "i")
+        {
+            dtype = dtype_int;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = value;
+            }
+        }
+        else if (typeName == "x")
+        {
+            dtype = dtype_long_long;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = value;
+            }
+        }
+        else if (typeName == "f")
+        {
+            dtype = dtype_float;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = value;
+            }
+        }
+        else if (typeName == "d")
+        {
+            dtype = dtype_double;
+            for (int i = 0; i < total_size; ++i)
+            {
+                data[i] = value;
+            }
+        }
+        else
+        {
+            throw UnsupportedTypesException();
+            return Tensor<T>(0, nullptr, 0, nullptr);
+        }
+
+        Tensor<T> res(shape, size, dtype, data);
+        delete[] data;
+        return res;
+    }
+
+    template <typename T>
+    Tensor<T> eye(int row, int column)
+    {
+        int total_size = row * column;
+        int *size = new int[2]{row, column};
+        T *data = new T[total_size];
+
+        for (int i = 0; i < total_size; ++i)
+        {
+            data[i] = 0;
+        }
+        
+        int row_column_min = row < column ? row : column;
+
+        for (int i = 0; i < row; ++i)
+        {
+            if (i >= row_column_min) break;
+            data[i * column + i] = 1;
+        }
+
+        // 识别 T 的类型
+        int dtype;
+        T temp;
+        string typeName = typeid(temp).name();
+
+        if (typeName == "b")
+        {
+            dtype = dtype_bool;
+        }
+        else if (typeName == "c")
+        {
+            dtype = dtype_char;
+        }
+        else if (typeName == "i")
+        {
+            dtype = dtype_int;
+        }
+        else if (typeName == "x")
+        {
+            dtype = dtype_long_long;
+        }
+        else if (typeName == "f")
+        {
+            dtype = dtype_float;
+        }
+        else if (typeName == "d")
+        {
+            dtype = dtype_double;
+        }
+        else
+        {
+            throw UnsupportedTypesException();
+            return Tensor<T>(0, nullptr, 0, nullptr);
+        }
+
+        Tensor<T> res(2, size, dtype, data);
+        delete[] data;
+        return res;
+    }
+
+    template <typename T>
     Tensor<T> add(const Tensor<T> &t1, const Tensor<T> &t2)
     {
         return t1.add(t2);
