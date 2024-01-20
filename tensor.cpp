@@ -173,7 +173,7 @@ namespace ts
         }
 
         // 拷贝构造函数，其中对于data只是浅拷贝
-        Tensor(T *new_data, int s, int *sz, int dt, int *shared_ptr_cnt) : shape(s), dtype(dt), ptr_cnt(shared_ptr_cnt)
+        Tensor(T *new_data, int s, int *sz, int dt, int *shared_ptr_cnt, int *p) : shape(s), dtype(dt), ptr_cnt(shared_ptr_cnt)
         {
             size = new int[shape];
             permute = new int[shape];
@@ -183,8 +183,12 @@ namespace ts
             for (int i = 0; i < shape; ++i)
             {
                 size[i] = sz[i];
-                permute[i] = i;
                 total_size *= size[i];
+            }
+
+            for (int i = 0; i < shape; ++i)
+            {
+                permute[i] = p[i];
             }
 
             offset[shape - 1] = 1;
@@ -333,7 +337,7 @@ namespace ts
                 {
                     new_size[i - index.size()] = size[i];
                 }
-                return Tensor<T>(new_data, new_shape, new_size, dtype, ptr_cnt);
+                return Tensor<T>(new_data, new_shape, new_size, dtype, ptr_cnt, permute);
             }
 
             // 处理range情况
@@ -349,7 +353,7 @@ namespace ts
             }
             new_data += offset[index.size()] * range.first;
 
-            return Tensor<T>(new_data, new_shape, new_size, dtype, ptr_cnt);
+            return Tensor<T>(new_data, new_shape, new_size, dtype, ptr_cnt, permute);
         }
 
         // join 操作, 假设未转置，ts::Tensor t3 = ts::cat({t1, t2}, int dim)
@@ -536,24 +540,20 @@ namespace ts
         }
 
         // Permute
-        Tensor<T> &tensor_permute(int *p)
+        Tensor<T> tensor_permute(int *p)
         {
-            setPermute(p);
-            return *this;
+            Tensor<T> tmp(data, shape, size, dtype, ptr_cnt, permute);
+            tmp.setPermute(p);
+            return move(tmp);
         }
 
         // Transpose
-        Tensor<T> &tensor_transpose(int dim1, int dim2)
+        Tensor<T> tensor_transpose(int dim1, int dim2)
         {
-            int *p = new int[shape];
-            for (int i = 0; i < shape; i++)
-            {
-                p[i] = i;
-            }
-            p[dim1] = dim2;
-            p[dim2] = dim1;
-            setPermute(p);
-            return *this;
+            Tensor<T> tmp(data, shape, size, dtype, ptr_cnt, permute);
+            int *p = tmp.getPermute();
+            swap(p[dim1], p[dim2]);
+            return move(tmp);
         }
 
         // View operation
