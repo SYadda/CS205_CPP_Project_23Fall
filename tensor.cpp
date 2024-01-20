@@ -583,7 +583,15 @@ namespace ts
                 new_size[i] = new_shape[i];
             }
 
-            return Tensor<T>(new_shape.size(), new_size, dtype, data, ptr_cnt);
+            // 计算新的permute
+            int *new_permute = new int[new_shape.size()];
+            for (int i = 0; i < new_shape.size(); i++)
+            {
+                new_permute[i] = i;
+            }
+
+            // return Tensor<T>(new_shape.size(), new_size, dtype, data, ptr_cnt);
+            return Tensor<T>(data, new_shape.size(), new_size, dtype, ptr_cnt, new_permute, 0);
         }
 
         // 尺寸验证
