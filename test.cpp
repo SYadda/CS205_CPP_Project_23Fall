@@ -144,5 +144,18 @@ int main()
      cout << "address of view_t = " << view_t.data_ptr() << endl
           << endl;
 
+     // 测试Serialization
+     cout << endl
+          << "--------------------3.2.1: 测试Serialization, 将op_t1序列化后, 再反序列化为 deserialized_op_t1 ----------------------" << endl
+          << endl;
+     const string filename = "tensor_data.bin";
+     ts::save(op_t1, filename);
+
+     // 从文件加载Tensor
+     Tensor<float> loadedTensor = ts::load<float>(filename);
+
+     // 打印加载的Tensor
+     cout << loadedTensor << endl;
+
      return 0;
 }
