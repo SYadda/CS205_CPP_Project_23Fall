@@ -51,9 +51,9 @@ int main()
      cout << "address of index_op_t1 = " << index_op_t1.data_ptr() << endl
           << endl;
 
-     cout << "---2.1.2: 对于op_t2, index = {1}, range = {0, 2}---" << endl
+     cout << "---2.1.2: 对于op_t2, index = {1}, range = {1, 2}---" << endl
           << endl;
-     ts::Tensor<float> index_op_t2 = op_t2(index, {0, 2});
+     ts::Tensor<float> index_op_t2 = op_t2(index, {1, 2});
      cout << index_op_t2 << endl;
 
      cout << endl
@@ -72,11 +72,11 @@ int main()
 
      // 测试tile
      cout << endl
-          << "--------------------2.2.2: 测试tile, 将 op_t1 沿着{2, 2}进行拼接----------------------" << endl
+          << "--------------------2.2.2: 测试tile, 将 op_t2 按照{2, 3}进行拼接----------------------" << endl
           << endl;
-     vector<int> reps = {2, 2};
-     ts::Tensor<float> tile_op_t1 = tile(op_t2, reps);
-     cout << tile_op_t1 << endl;
+     vector<int> reps = {2, 3};
+     ts::Tensor<float> tile_op_t2 = tile(op_t2, reps);
+     cout << tile_op_t2 << endl;
 
      // 测试mutating1
      cout << endl
@@ -146,7 +146,7 @@ int main()
 
      // 测试Serialization
      cout << endl
-          << "--------------------3.2.1: 测试Serialization, 将op_t1序列化后, 再反序列化为 deserialized_op_t1 ----------------------" << endl
+          << "--------------------bonus1: 测试Serialization, 将op_t1序列化后, 再反序列化为 deserialized_op_t1 ----------------------" << endl
           << endl;
      const string filename = "tensor_data.bin";
      ts::save(op_t1, filename);
