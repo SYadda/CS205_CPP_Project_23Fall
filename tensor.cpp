@@ -6,6 +6,7 @@
 #include <cstring>
 #include <typeinfo>
 #include <vector>
+#include <fstream>
 using namespace std;
 
 namespace ts
@@ -219,6 +220,9 @@ namespace ts
             (*ptr_cnt)++;
         }
 
+        // 默认构造函数
+        Tensor() : shape(0), size(nullptr), total_size(0), dtype(0), permute(nullptr), offset(nullptr), data(nullptr), ptr_cnt(new int(1)) {}
+
         // 析构函数
         ~Tensor()
         {
@@ -309,6 +313,12 @@ namespace ts
             t.printTensor(os, t.data, t.size, 0, true);
             return os;
         }
+
+        template <typename save_T>
+        friend void save(const Tensor<save_T> &tensor, const std::string &filename);
+
+        template <typename load_T>
+        friend Tensor<load_T> load(const std::string &filename);
 
         Tensor<T> operator()(const vector<int> &index, pair<int, int> range = {0, 0})
         {
@@ -1481,6 +1491,100 @@ namespace ts
             return le(t);
         }
     };
+
+    template <typename T>
+    void save(const Tensor<T> &tensor, const std::string &filename)
+    {
+        std::ofstream out(filename, std::ios::binary);
+        if (!out.is_open())
+        {
+            throw std::runtime_error("Cannot open file for writing.");
+        }
+
+        // 写入shape
+        out.write(reinterpret_cast<const char *>(&tensor.shape), sizeof(tensor.shape));
+
+        // 写入size
+        out.write(reinterpret_cast<const char *>(tensor.size), sizeof(int) * tensor.shape);
+
+        // 写入dtype
+        out.write(reinterpret_cast<const char *>(&tensor.dtype), sizeof(tensor.dtype));
+
+        // 写入total_size
+        out.write(reinterpret_cast<const char *>(&tensor.total_size), sizeof(tensor.total_size));
+
+        // 写入data
+        out.write(reinterpret_cast<const char *>(tensor.data), sizeof(T) * tensor.total_size);
+
+        out.close();
+    }
+
+    template <typename T>
+    Tensor<T> load(const std::string &filename)
+    {
+        std::ifstream in(filename, std::ios::binary);
+        if (!in.is_open())
+        {
+            throw std::runtime_error("Cannot open file for reading.");
+        }
+
+        Tensor<T> tensor;
+        in.read(reinterpret_cast<char *>(&tensor.shape), sizeof(tensor.shape));
+
+        tensor.size = new int[tensor.shape];
+        in.read(reinterpret_cast<char *>(tensor.size), sizeof(int) * tensor.shape);
+
+        in.read(reinterpret_cast<char *>(&tensor.dtype), sizeof(tensor.dtype));
+
+        // 处理类型不匹配的异常
+        if (typeid(T) == typeid(bool) && tensor.dtype != dtype_bool)
+        {
+            throw std::runtime_error("Invalid data type.");
+        }
+        else if (typeid(T) == typeid(char) && tensor.dtype != dtype_char)
+        {
+            throw std::runtime_error("Invalid data type.");
+        }
+        else if (typeid(T) == typeid(int) && tensor.dtype != dtype_int)
+        {
+            throw std::runtime_error("Invalid data type.");
+        }
+        else if (typeid(T) == typeid(long long) && tensor.dtype != dtype_long_long)
+        {
+            throw std::runtime_error("Invalid data type.");
+        }
+        else if (typeid(T) == typeid(float) && tensor.dtype != dtype_float)
+        {
+            throw std::runtime_error("Invalid data type.");
+        }
+        else if (typeid(T) == typeid(double) && tensor.dtype != dtype_double)
+        {
+            throw std::runtime_error("Invalid data type.");
+        }
+
+        in.read(reinterpret_cast<char *>(&tensor.total_size), sizeof(tensor.total_size));
+
+        tensor.data = new T[tensor.total_size];
+        in.read(reinterpret_cast<char *>(tensor.data), sizeof(T) * tensor.total_size);
+
+        tensor.offset = new int[tensor.shape];
+        tensor.offset[tensor.shape - 1] = 1;
+        for (int i = tensor.shape - 1; i > 0; i--)
+        {
+            tensor.offset[i - 1] = tensor.offset[i] * tensor.size[i];
+        }
+
+        tensor.permute = new int[tensor.shape];
+        for (int i = 0; i < tensor.shape; ++i)
+        {
+            tensor.permute[i] = i;
+        }
+
+        tensor.ptr_cnt = new int(1);
+
+        in.close();
+        return tensor;
+    }
 
     template <typename T>
     Tensor<T> rand(int shape, int *size, T range_min = 0, T range_max = std::numeric_limits<T>::max())
