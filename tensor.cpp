@@ -252,7 +252,12 @@ namespace ts
         // 获取张量的总大小
         int getTotalSize() const
         {
-            return total_size;
+            int cur_total_size = 1;
+            for (int i = 0; i < shape; ++i)
+            {
+                cur_total_size *= size[i];
+            }
+            return cur_total_size;
         }
 
         // 获取张量数据类型
@@ -320,6 +325,7 @@ namespace ts
         template <typename load_T>
         friend Tensor<load_T> load(const std::string &filename);
 
+        // 处理index部分
         Tensor<T> operator()(const vector<int> &index, pair<int, int> range = {0, 0})
         {
             // 处理边界情况
@@ -455,7 +461,7 @@ namespace ts
         friend Tensor<T> self_cat(const Tensor &t1, int n, int dim)
         {
             // 处理边界情况
-            if (dim > t1.shape)
+            if (dim >= t1.shape)
             {
                 cout << "dim > t1.shape" << endl;
                 throw InvalidShapeException();
@@ -464,6 +470,53 @@ namespace ts
             {
                 cout << "n must be greater than 0" << endl;
                 throw InvalidShapeException();
+            }
+
+            // dim < 0 则基于整个张量来拓展
+            if (dim < 0)
+            {
+                int new_shape = t1.shape + 1;
+                int *new_size = new int[new_shape];
+                new_size[0] = n;
+                for (int i = 0; i < t1.shape; i++)
+                {
+                    new_size[i + 1] = t1.size[i];
+                }
+
+                int new_total_size = 1;
+                for (int i = 0; i < new_shape; i++)
+                {
+                    new_total_size *= new_size[i];
+                }
+
+                int *new_offset = new int[new_shape];
+                new_offset[new_shape - 1] = 1;
+                for (int i = new_shape - 1; i > 0; i--)
+                {
+                    new_offset[i - 1] = new_offset[i] * new_size[i];
+                }
+
+                T *new_data = new T[new_total_size];
+
+                int t1_add = 1;
+                for (int i = t1.getShape() - 1; i >= 0; i--)
+                {
+                    t1_add *= t1.getSize()[i];
+                }
+
+                int order = 0;
+                vector<int> t1_order(n, 0);
+                for (int i = 0; i < n; i++)
+                {
+                    for (int j = 0; j < t1_add; j++)
+                    {
+                        new_data[order] = t1.data[t1_order[i]];
+                        order++;
+                        t1_order[i]++;
+                    }
+                }
+
+                return Tensor<T>(new_shape, new_size, t1.dtype, new_data);
             }
 
             // 计算新的size和total_size
@@ -846,7 +899,7 @@ namespace ts
 
         Tensor<double> log() const
         {
-            Tensor<double> res(shape, size, dtype_double);
+            Tensor<double> res(shape, size, dtype, dtype_double);
 
             for (int i = 0; i < total_size; ++i)
             {
