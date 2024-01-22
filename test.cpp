@@ -72,9 +72,9 @@ int main()
 
      // 测试tile
      cout << endl
-          << "--------------------2.2.2: 测试tile, 将 op_t2 按照{2, 3}进行拼接----------------------" << endl
+          << "--------------------2.2.2: 测试tile, 将 op_t2 按照{2, 1, 2, 3}进行拼接----------------------" << endl
           << endl;
-     vector<int> reps = {2, 3};
+     vector<int> reps = {2, 1, 2, 3};
      ts::Tensor<float> tile_op_t2 = tile(op_t2, reps);
      cout << tile_op_t2 << endl;
 
