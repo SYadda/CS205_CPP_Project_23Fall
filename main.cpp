@@ -5,6 +5,7 @@ using namespace ts;
 
 int main() {
      {
+          
     // 示例用法
     int shape = 3;
     int size[] = {2, 3, 4};
@@ -58,6 +59,7 @@ int main() {
 
     cout << endl << endl << endl << endl;
 
+    cout << "----------------- 1.2 Random Init -----------------" << endl;
 
     // ts::rand<long>();
 
@@ -119,7 +121,7 @@ int main() {
     cout << endl << endl << endl << endl;
 
 
-
+    cout << "----------------- 1.3.1 Zeros Init -----------------" << endl;
 
     cout << "zeros bool" << endl;
     ts::Tensor<bool> test_zeros_b = ts::zeros<bool>(3, rand_size);
@@ -135,7 +137,7 @@ int main() {
 
     cout << endl << endl << endl << endl;
 
-
+    cout << "----------------- 1.3.2 Ones Init -----------------" << endl;
 
     cout << "ones bool" << endl;
     ts::Tensor<bool> test_ones_b = ts::ones<bool>(3, rand_size);
@@ -151,7 +153,7 @@ int main() {
 
     cout << endl << endl << endl << endl;
 
-
+    cout << "----------------- 1.3.3 Value Init -----------------" << endl;
 
 
     cout << "full bool" << endl;
@@ -176,7 +178,7 @@ int main() {
 
     cout << endl << endl << endl << endl;
 
-
+    cout << "----------------- 1.4 Pattern Init -----------------" << endl;
 
     cout << "eye 3 3" << endl;
     ts::Tensor<int> test_eye_33 = ts::eye<int>(3, 3);
