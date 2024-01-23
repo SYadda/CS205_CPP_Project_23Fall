@@ -899,7 +899,7 @@ namespace ts
 
         Tensor<double> log() const
         {
-            Tensor<double> res(shape, size, dtype, dtype_double);
+            Tensor<double> res(shape, size, dtype_double);
 
             for (int i = 0; i < total_size; ++i)
             {
