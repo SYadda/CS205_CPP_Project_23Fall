@@ -205,7 +205,7 @@ namespace ts
             ++(*ptr_cnt);
         }
 
-        Tensor(const Tensor &t) : shape(t.shape), dtype(t.dtype), size(new int[t.shape]), permute(new int[t.shape]), offset(new int[t.shape]), data(t.data), ptr_cnt(t.ptr_cnt)
+        Tensor(const Tensor &t) : shape(t.shape), total_size(t.total_size), dtype(t.dtype), size(new int[t.shape]), permute(new int[t.shape]), offset(new int[t.shape]), data(t.data), ptr_cnt(t.ptr_cnt)
         {
 
             // 复制size、permute和offset数组
@@ -788,10 +788,125 @@ namespace ts
             return res;
         }
 
+        Tensor broadcast_compute(const Tensor &a, const Tensor &b, const string compute_type) const
+        {
+            // 两个tensor的shape不同，尝试进行广播，不能广播则throw std::runtime_error("Shape mismatch");
+            bool a_larger_than_b = a.shape > b.shape;
+
+            int differ, min_shape;
+            // differ: 两个张量shape的差值
+            // min_shape: 两个张量shape中较小的那个
+
+            if (a_larger_than_b) 
+            {
+                differ = a.shape - b.shape;
+                min_shape = b.shape;
+            }
+            else // b larger than a
+            {
+                differ = b.shape - a.shape;
+                min_shape = shape;
+            }
+
+            // 两个张量扩展后的shape
+            vector<int> dims_a, dims_b; 
+
+            // 这些维度，大张量有，小张量没有
+            if (a_larger_than_b)
+            {
+                for (int i = 0; i < differ; ++i)
+                {
+                    dims_a.push_back(1);
+                    dims_b.push_back(size[i]);
+                }
+            }
+            else // b larger than a
+            {
+                for (int i = 0; i < differ; ++i)
+                {
+                    dims_a.push_back(b.size[i]);
+                    dims_b.push_back(1);
+                }
+            }
+
+            if (a_larger_than_b)
+            {
+                // 这些维度，两个张量都有，size必须相同，或其中一个size为1，否则无法广播，throw std::runtime_error("Shape mismatch");
+                for (int i = 0; i < min_shape; ++i)
+                {
+                    if (size[i+differ] == b.size[i])
+                    {
+                        // 此维度无需广播
+                        dims_a.push_back(1);
+                        dims_b.push_back(1);
+                    }
+                    else if (size[i+differ] == 1)
+                    {
+                        dims_a.push_back(b.size[i]);
+                        dims_b.push_back(1);
+                    }
+                    else if (b.size[i] == 1)
+                    {
+                        dims_a.push_back(1);
+                        dims_b.push_back(size[i+differ]);
+                    }
+                    else
+                    {
+                        // 不符合广播规则
+                        throw std::runtime_error("Shape mismatch");
+                    }
+                }
+            }
+            else // b larger than a
+            {
+                // 这些维度，两个张量都有，size必须相同，或其中一个size为1，否则无法广播，throw std::runtime_error("Shape mismatch");
+                for (int i = 0; i < min_shape; ++i)
+                {
+                    if (size[i] == b.size[i+differ])
+                    {
+                        // 此维度无需广播
+                        dims_a.push_back(1);
+                        dims_b.push_back(1);
+                    }
+                    else if (size[i] == 1)
+                    {
+                        dims_a.push_back(b.size[i+differ]);
+                        dims_b.push_back(1);
+                    }
+                    else if (b.size[i+differ] == 1)
+                    {
+                        dims_a.push_back(1);
+                        dims_b.push_back(size[i]);
+                    }
+                    else
+                    {
+                        // 不符合广播规则
+                        throw std::runtime_error("Shape mismatch");
+                    }
+                }
+            }
+
+            Tensor<T> tile_a = tile(a, dims_a);
+            Tensor<T> tile_b = tile(b, dims_b);
+
+            if (compute_type == "add") {
+                return tile_a.add(tile_b);
+            } else if (compute_type == "sub") {
+                return tile_a.sub(tile_b);
+            } else if (compute_type == "mul") {
+                return tile_a.mul(tile_b);
+            } else if (compute_type == "div") {
+                return tile_a.div(tile_b);
+            } else {
+                throw std::runtime_error("Unsupported compute type");
+            }
+        } 
+
         // 函数调用
         Tensor add(const Tensor &t) const
         {
-            assert_shape_same(t);
+            // assert_shape_same(t);
+            if (shape != t.shape) return broadcast_compute(*this, t, "add");
 
             Tensor res(shape, this->size, dtype, data);
 
@@ -818,7 +933,8 @@ namespace ts
 
         Tensor sub(const Tensor &t) const
         {
-            assert_shape_same(t);
+            // assert_shape_same(t);
+            if (shape != t.shape) return broadcast_compute(*this, t, "sub");
 
             Tensor res(shape, this->size, dtype, data);
 
@@ -845,7 +961,8 @@ namespace ts
 
         Tensor mul(const Tensor &t) const
         {
-            assert_shape_same(t);
+            // assert_shape_same(t);
+            if (shape != t.shape) return broadcast_compute(*this, t, "mul");
 
             Tensor res(shape, this->size, dtype, data);
 
@@ -872,7 +989,8 @@ namespace ts
 
         Tensor div(const Tensor &t) const
         {
-            assert_shape_same(t);
+            // assert_shape_same(t);
+            if (shape != t.shape) return broadcast_compute(*this, t, "div");
 
             Tensor res(shape, this->size, dtype, data);
 
