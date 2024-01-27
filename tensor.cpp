@@ -695,8 +695,10 @@ namespace ts
             const int real_index = get_index(index);
             return data[real_index];
         }
+         //理解：张量的每个元素对应一个索引数组，dim对应索引数组的某一对应位置，实现对某一维度进行操作
+        //其实就是enisum的ijkmn->ikmn的特殊化,索引的dim位置全部遍历一遍，实现降维
         // 函数模板，只不过不确定的类型是函数，这样不同的+ —法等都可以当输入参数
-        // 实现对某一维度进行操作
+        
         template <typename ReduceFunc>
         Tensor reduce(int dim, ReduceFunc reduce_fuc) const
         {
@@ -704,7 +706,7 @@ namespace ts
             {
                 throw std::runtime_error("Dimension out of range");
             }
-
+            //给新张量生成小一维的size，比dim小的部分size不变，比dim大的部分往前移一位
             int *new_size = new int[shape - 1];
             for (int i = 0; i < shape; ++i)
             {
@@ -725,7 +727,7 @@ namespace ts
 
             // target_index索引目标tensor中的一个数据
             int *target_index = new int[res.shape]{};
-
+            //得到新张量每个元素运算次数是size[dim]对应的size
             const int sum_size = size[permute[dim]];
 
             // (3,4,5)
@@ -755,7 +757,7 @@ namespace ts
                 }
 
                 index[dim] = 0;
-
+                //按dim便利
                 T val = access(index);
                 for (int j = 1; j < sum_size; ++j)
                 {
@@ -787,7 +789,6 @@ namespace ts
             delete[] new_size;
             return res;
         }
-
         Tensor broadcast_compute(const Tensor &a, const Tensor &b, const string compute_type) const
         {
             // 两个tensor的shape不同，尝试进行广播，不能广播则throw std::runtime_error("Shape mismatch");
@@ -1252,8 +1253,11 @@ namespace ts
             }
         }
 
+        
         Tensor einsum(const char *equation) const
         {
+            //检查方程是否合法
+            //1没有多余符号
             for (const char *s = equation; s[0] != '\0'; ++s)
             {
                 if (!((s[0] >= 'a' && s[0] <= 'z') || s[0] == '-' || s[0] == '>'))
@@ -1261,75 +1265,92 @@ namespace ts
                     throw std::runtime_error("Invalid equation");
                 }
             }
-
+            //找到->
             const char *arrow = strstr(equation, "->");
+            
             const int eq_len = strlen(equation);
+            //右边张量维度
             int res_shape = eq_len - (arrow - equation) - 2;
-
+            //2找到前后张量shape后判断是否合法（有->,前后张量shape合法）
             if (arrow == NULL || arrow - equation != shape || res_shape < 0)
             {
                 throw std::runtime_error("Invalid equation");
             }
+            
+            int *lhs_vars = new int[shape];//左边出现的变量（可重复）
+            int vars[26];//按变量出现顺序记录（不重复）
+            int var_size[26]{};//每个变量对应维度的size
+            int n_vars = 0;//单独变量总数
 
-            int *lhs_vars = new int[shape];
-            int vars[26];
-            int var_size[26]{};
-            int n_vars = 0;
-
+            //3给上面四个量赋值，并且检查相同变量对应该维度的size是否相同（例如iij）
             check_equation_lhs(equation, n_vars, vars, lhs_vars, var_size);
-
-            const char *rhs_equation = equation + (shape + 2);
-            int rhs_size[26]{};
-            bool is_rhs_var[26]{};
-            int rhs_vars[26]{};
-
+           //对右边进行操作
+            const char *rhs_equation = equation + (shape + 2);//指向->右侧字符
+            int rhs_size[26]{};//右边张量size，不能重复所有最多长26
+            bool is_rhs_var[26]{};//标记变量是否出现在右边
+            int rhs_vars[26]{};//记录右边出现的所有变量
+            //便利右边的变量，判断合法性。合法的话就初始化右边张量的size，记录变量顺序，以及变量是否用到过
             for (int i = 0; i < res_shape; ++i)
-            {
+            {    //设置var的目的是为了让字母和数组下标对应上，比如'a',返回的偏移是0，对应下标为0.
+               //int var_size[26]= [3,5,6]
+                // a,b,c   var_size[var]
                 char var = rhs_equation[i] - 'a';
                 const char *ptr = strchr(equation, var + 'a');
                 if (ptr == &rhs_equation[i])
                 {
-                    // 右边的变量必须要在左边出现过
+                    // 右边的变量必须要在左边出现过（不然不知道放哪）
                     throw std::runtime_error("Invalid equation");
                 }
 
                 if (strchr(rhs_equation + i + 1, var + 'a') != NULL)
                 {
-                    // 右边的变量不能重复
+                    // 右边的变量不能重复（不然放不满）
                     throw std::runtime_error("Invalid equation");
                 }
 
-                rhs_size[i] = var_size[var];
-                rhs_vars[i] = var;
-                is_rhs_var[var] = true;
+                rhs_size[i] = var_size[var];//右边张量的size通过左边张量对应字母所对应的维度赋值
+                rhs_vars[i] = var;//按顺序记录右边变量（以数字形式）
+                is_rhs_var[var] = true;//该字母用到过
             }
-
-            int sum_size = 1;
-            int n_sum_vars = 0;
-            int sum_vars[26]{};
+            //找到所有求和变量
+            int sum_size = 1;//右边张量每个元素对应的求和次数
+            int n_sum_vars = 0;  //一共几个求和变量
+            int sum_vars[26]{};//哪些是要求和的变量
+            //总出现过的变量遍历
             for (int i = 0; i < n_vars; ++i)
-            {
+            {   //右边没出现就求和
                 if (!is_rhs_var[vars[i]])
                 {
-                    sum_vars[n_sum_vars++] = vars[i];
-                    sum_size *= var_size[vars[i]];
+                    sum_vars[n_sum_vars++] = vars[i];//赋给要求和变量
+                    sum_size *= var_size[vars[i]];//总求和次数为求和变量所对应的维度乘积
                 }
             }
 
-            int *rhs_idx = new int[res_shape]{}; // 用于遍历res的index
-            int *lhs_idx = new int[shape]{};     // 用于遍历lhs的index
-            int var_vals[26]{};
+            int *rhs_idx = new int[res_shape]{}; // 右边张量每个元素的索引
+            int *lhs_idx = new int[shape]{};     // 左边张量每个元素的索引
+            int var_vals[26]{};//每个变量对应的值
+           //rhs_idx
+           //[1,2,3]
+            //s,j,k
+
+            //rhs_vars
+              //[m,n,q]
+               
+           //  int var_vals[26]{}:
+           // [4,5,6,7,9,1,5,7,3,3,6,7,8,0,0,0]
+           //  a,b,b,d,e,f,g,...
 
             Tensor res(res_shape, rhs_size, dtype);
 
             for (int i = 0; i < res.total_size; ++i)
             {
                 T sum{};
+                //把所有要求和的变量设为0
                 for (int j = 0; j < n_sum_vars; ++j)
-                {
+                { 
                     var_vals[sum_vars[j]] = 0;
                 }
-
+                //出现过的变量对应的值赋给左边张量的索引，并进行更新
                 for (int j = 0; j < sum_size; ++j)
                 {
                     for (int k = 0; k < shape; ++k)
@@ -1338,7 +1359,8 @@ namespace ts
                     }
 
                     sum += access(lhs_idx);
-
+                    
+                //按顺序改变每一个要求和变量对应的索引
                     for (int j = 0; j < n_sum_vars; ++j)
                     {
                         const int var = sum_vars[j];
@@ -1360,6 +1382,15 @@ namespace ts
                 }
 
                 res.access(rhs_idx) = sum;
+
+            /*
+            0 0 0
+            0 0 1
+            0 0 2
+            0 1 0
+            */
+
+
 
                 for (int j = res_shape - 1; j >= 0; --j)
                 {
@@ -1384,7 +1415,7 @@ namespace ts
         }
 
         Tensor einsum(const char *equation, const Tensor &t) const
-        {
+        {    //输入形式要求
             for (const char *s = equation; s[0] != '\0'; ++s)
             {
                 if (!((s[0] >= 'a' && s[0] <= 'z') || s[0] == ',' || s[0] == '-' || s[0] == '>'))
@@ -1392,12 +1423,12 @@ namespace ts
                     throw std::runtime_error("Invalid equation");
                 }
             }
-
+             //方程长度要求
             if (strlen(equation) < shape + 1 + t.shape + 2)
             {
                 throw std::runtime_error("Invalid equation");
             }
-
+             //特定位置有，->
             if (equation[shape] != ',' || equation[shape + 1 + t.shape] != '-' || equation[shape + 1 + t.shape + 1] != '>')
             {
                 throw std::runtime_error("Invalid equation");
@@ -1410,15 +1441,15 @@ namespace ts
             int vars[26];
             int var_size[26]{};
             int n_vars = 0;
-
+            //检查想同变量对应维度的size相同，并储存
             check_equation_lhs(equation, n_vars, vars, lhs_vars1, var_size);
             t.check_equation_lhs(equation + shape + 1, n_vars, vars, lhs_vars2, var_size);
-
+            
             const char *rhs_equation = equation + (shape + 1 + t.shape + 2);
             int rhs_size[26]{};
             bool is_rhs_var[26]{};
             int rhs_vars[26]{};
-
+            //检查右边
             for (int i = 0; i < res_shape; ++i)
             {
                 char var = rhs_equation[i] - 'a';
@@ -1435,11 +1466,11 @@ namespace ts
                     throw std::runtime_error("Invalid equation");
                 }
 
-                rhs_size[i] = var_size[var];
-                rhs_vars[i] = var;
-                is_rhs_var[var] = true;
+                rhs_size[i] = var_size[var];//给左边size赋值
+                rhs_vars[i] = var;//左边每个位置对应变量
+                is_rhs_var[var] = true;//右边用过
             }
-
+            //存储所有求和变量
             int sum_size = 1;
             int n_sum_vars = 0;
             int sum_vars[26]{};
@@ -1522,6 +1553,162 @@ namespace ts
             delete[] lhs_vars1;
             delete[] lhs_vars2;
             delete[] rhs_idx;
+            delete[] lhs_idx1;
+            delete[] lhs_idx2;
+
+            return res;
+        }
+
+         Tensor einsum(const char *equation, const Tensor &t1, const Tensor &t2) const
+        {    //输入形式要求
+        
+            for (const char *s = equation; s[0] != '\0'; ++s)
+            {
+                if (!((s[0] >= 'a' && s[0] <= 'z') || s[0] == ',' || s[0] == '-' || s[0] == '>'))
+                {
+                    throw std::runtime_error("Invalid equation");
+                }
+            }
+           
+             
+  //特定位置有，->
+            if (equation[shape] != ',' || equation[shape + 1 + t1.shape] != ',' || equation[shape + 1 + t1.shape + 1+t2.shape] != '-' )
+            {
+                throw std::runtime_error("Invalid equation");
+            }
+            
+            const int res_shape = strlen(equation) - (shape + 1 + t1.shape + 1+t2.shape+2);
+
+            int *lhs_vars = new int[shape];
+            int *lhs_vars1 = new int[t1.shape];
+            int *lhs_vars2 = new int[t2.shape];
+            int vars[26];
+            int var_size[26]{};
+            int n_vars = 0;
+            //检查想同变量对应维度的size相同，并储存
+            
+            check_equation_lhs(equation, n_vars, vars, lhs_vars, var_size);
+           
+            t1.check_equation_lhs(equation + shape + 1, n_vars, vars, lhs_vars1, var_size);
+           
+             t2.check_equation_lhs(equation + shape + 1+t1.shape+1, n_vars, vars, lhs_vars2, var_size);
+             
+            
+            const char *rhs_equation = equation + (shape + 1 + t1.shape + 1+t2.shape+2);
+            int rhs_size[26]{};
+            bool is_rhs_var[26]{};
+            int rhs_vars[26]{};
+            //检查右边
+            for (int i = 0; i < res_shape; ++i)
+            {
+                char var = rhs_equation[i] - 'a';
+                const char *ptr = strchr(equation, var + 'a');
+                if (ptr == &rhs_equation[i])
+                {
+                    // 右边的变量必须要在左边出现过
+                    throw std::runtime_error("Invalid equation");
+                }
+
+                if (strchr(rhs_equation + i + 1, var + 'a') != NULL)
+                {
+                    // 右边的变量不能重复
+                    throw std::runtime_error("Invalid equation");
+                }
+
+                rhs_size[i] = var_size[var];//给左边size赋值
+                rhs_vars[i] = var;//左边每个位置对应变量
+                is_rhs_var[var] = true;//右边用过
+            }
+            //存储所有求和变量
+            int sum_size = 1;
+            int n_sum_vars = 0;
+            int sum_vars[26]{};
+            for (int i = 0; i < n_vars; ++i)
+            {
+                if (!is_rhs_var[vars[i]])
+                {
+                    sum_vars[n_sum_vars++] = vars[i];
+                    sum_size *= var_size[vars[i]];
+                }
+            }
+
+            int *rhs_idx = new int[res_shape]{}; // 用于遍历res的index
+            int *lhs_idx = new int[shape]{};    // 用于遍历lhs的index
+            int *lhs_idx1 = new int[t1.shape]{}; 
+            int *lhs_idx2 = new int[t2.shape]{}; // 用于遍历lhs的index
+            int var_vals[26]{};
+
+            Tensor res(res_shape, rhs_size, dtype);
+
+            for (int i = 0; i < res.total_size; ++i)
+            {
+                T sum{};
+                for (int j = 0; j < n_sum_vars; ++j)
+                {
+                    var_vals[sum_vars[j]] = 0;
+                }
+
+                for (int j = 0; j < sum_size; ++j)
+                {
+                    for (int k = 0; k < shape; ++k)
+                    {
+                        lhs_idx[k] = var_vals[lhs_vars[k]];
+                    }
+                    for (int k = 0; k < t1.shape; ++k)
+                    {
+                        lhs_idx1[k] = var_vals[lhs_vars1[k]];
+                    }
+                     for (int k = 0; k < t2.shape; ++k)
+                    {
+                        lhs_idx2[k] = var_vals[lhs_vars2[k]];
+                    }
+
+                    const T v = access(lhs_idx);
+                    const T v1 = t1.access(lhs_idx1);
+                    const T v2 = t2.access(lhs_idx2);
+                    sum += v*v1 * v2;
+
+                    for (int j = 0; j < n_sum_vars; ++j)
+                    {
+                        const int var = sum_vars[j];
+                        if (var_vals[var] < var_size[var] - 1)
+                        {
+                            ++var_vals[var];
+                            break;
+                        }
+                        else
+                        {
+                            var_vals[var] = 0;
+                        }
+                    }
+                }
+
+                for (int k = 0; k < res_shape; ++k)
+                {
+                    rhs_idx[k] = var_vals[rhs_vars[k]];
+                }
+
+                res.access(rhs_idx) = sum;
+
+                for (int j = res_shape - 1; j >= 0; --j)
+                {
+                    const int var = rhs_vars[j];
+                    if (var_vals[var] < var_size[var] - 1)
+                    {
+                        ++var_vals[var];
+                        break;
+                    }
+                    else
+                    {
+                        var_vals[var] = 0;
+                    }
+                }
+            }
+            delete[] lhs_vars;
+            delete[] lhs_vars1;
+            delete[] lhs_vars2;
+            delete[] rhs_idx;
+            delete[] lhs_idx;
             delete[] lhs_idx1;
             delete[] lhs_idx2;
 
@@ -2361,5 +2548,13 @@ namespace ts
     Tensor<T> einsum(const char *equation, const Tensor<T> &t1, const Tensor<T> &t2)
     {
         return t1.einsum(equation, t2);
+    }
+    template <typename T>
+    Tensor<T> einsum(const char *equation, const Tensor<T> &t1, const Tensor<T> &t2,const Tensor<T> &t3)
+    { 
+    
+        
+
+         return  t1.einsum(equation, t2,t3);;
     }
 }
